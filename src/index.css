@@ -38,7 +38,11 @@
   }
 
   .logo {
-    @apply text-xl font-semibold text-indigo-600;
+    @apply text-xl font-semibold text-indigo-600 flex items-center gap-2;
+  }
+
+  .version-badge {
+    @apply text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider;
   }
 
   .nav-link {

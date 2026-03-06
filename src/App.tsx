@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { 
   Send, 
@@ -13,13 +13,25 @@ import {
   Mail, 
   Sparkles, 
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  History,
+  Trash2,
+  Clock,
+  MessageSquare,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Initialize Gemini AI
-// Note: process.env.GEMINI_API_KEY is automatically injected by the platform
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+type HistoryItem = {
+  id: string;
+  original: string;
+  reply: string;
+  tone: string;
+  timestamp: number;
+};
 
 export default function App() {
   const [inputEmail, setInputEmail] = useState('');
@@ -27,7 +39,29 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tone, setTone] = useState('Professional');
+  const [length, setLength] = useState('Medium');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  
   const resultRef = useRef<HTMLDivElement>(null);
+
+  // Load history from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('email_reply_history');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error("Failed to parse history", e);
+      }
+    }
+  }, []);
+
+  // Save history to localStorage
+  useEffect(() => {
+    localStorage.setItem('email_reply_history', JSON.stringify(history));
+  }, [history]);
 
   const generateReply = async () => {
     if (!inputEmail.trim()) return;
@@ -38,17 +72,18 @@ export default function App() {
 
     try {
       const model = "gemini-3-flash-preview";
-      const prompt = `Write a professional, polite, and effective email reply to the following message. 
-      Ensure the tone is appropriate for a business context. 
+      const prompt = `Write a ${tone.toLowerCase()} email reply to the following message. 
+      The reply should be ${length.toLowerCase()} in length.
+      Ensure the tone is ${tone.toLowerCase()} and appropriate for the context. 
       If the original email asks a question, answer it logically. 
-      If it's a request, acknowledge it professionally.
+      If it's a request, acknowledge it appropriately.
       
       Original Email:
       """
       ${inputEmail}
       """
       
-      Professional Reply:`;
+      ${tone} Reply (${length}):`;
 
       const response = await genAI.models.generateContent({
         model: model,
@@ -58,6 +93,17 @@ export default function App() {
       const text = response.text;
       if (text) {
         setGeneratedReply(text);
+        
+        // Add to history
+        const newItem: HistoryItem = {
+          id: Math.random().toString(36).substring(7),
+          original: inputEmail,
+          reply: text,
+          tone: tone,
+          timestamp: Date.now(),
+        };
+        setHistory(prev => [newItem, ...prev].slice(0, 10)); // Keep last 10
+
         // Scroll to result on desktop
         setTimeout(() => {
           resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -73,9 +119,9 @@ export default function App() {
     }
   };
 
-  const copyToClipboard = () => {
-    if (!generatedReply) return;
-    navigator.clipboard.writeText(generatedReply);
+  const copyToClipboard = (textToCopy: string = generatedReply) => {
+    if (!textToCopy) return;
+    navigator.clipboard.writeText(textToCopy);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -84,6 +130,24 @@ export default function App() {
     setInputEmail('');
     setGeneratedReply('');
     setError(null);
+  };
+
+  const deleteHistoryItem = (id: string) => {
+    setHistory(prev => prev.filter(item => item.id !== id));
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+  };
+
+  const useHistoryItem = (item: HistoryItem) => {
+    setInputEmail(item.original);
+    setGeneratedReply(item.reply);
+    setTone(item.tone);
+    setShowHistory(false);
+    setTimeout(() => {
+      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   return (
@@ -101,7 +165,13 @@ export default function App() {
               </span>
             </div>
             <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-slate-600">
-              <a href="#" className="hover:text-indigo-600 transition-colors">How it works</a>
+              <button 
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
+              >
+                <History className="w-4 h-4" />
+                History
+              </button>
               <a href="#" className="hover:text-indigo-600 transition-colors">Templates</a>
               <button className="bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-slate-800 transition-all">
                 Sign In
@@ -163,7 +233,46 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Reply Tone</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Professional', 'Friendly', 'Urgent', 'Apologetic'].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTone(t)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          tone === t 
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Reply Length</label>
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    {['Short', 'Medium', 'Long'].map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => setLength(l)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          length === l 
+                            ? 'bg-white text-indigo-600 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <p className="text-xs text-slate-500 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                   AI will generate a professional business response.
@@ -281,19 +390,109 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+          {/* History Modal/Overlay */}
+          <AnimatePresence>
+            {showHistory && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowHistory(false)}
+                  className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
+                />
+                <motion.div 
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                  className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[70] flex flex-col"
+                >
+                  <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <History className="w-5 h-5 text-indigo-600" />
+                      <h2 className="font-bold text-slate-900">Recent Replies</h2>
+                    </div>
+                    <button 
+                      onClick={() => setShowHistory(false)}
+                      className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                    >
+                      <ChevronDown className="w-5 h-5 rotate-[-90deg]" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex-grow overflow-y-auto p-6 space-y-4">
+                    {history.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Clock className="w-6 h-6 text-slate-300" />
+                        </div>
+                        <p className="text-slate-400 text-sm">No history yet. Generate a reply to see it here!</p>
+                      </div>
+                    ) : (
+                      history.map((item) => (
+                        <div 
+                          key={item.id}
+                          className="group p-4 rounded-2xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all cursor-pointer relative"
+                          onClick={() => useHistoryItem(item)}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
+                              {item.tone}
+                            </span>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteHistoryItem(item.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-700 font-medium line-clamp-2 mb-1">
+                            {item.original}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {history.length > 0 && (
+                    <div className="p-6 border-t border-slate-100">
+                      <button 
+                        onClick={clearHistory}
+                        className="w-full py-3 text-sm font-bold text-slate-500 hover:text-red-500 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Clear All History
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </section>
       </main>
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-12 px-4">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-1 rounded-md">
-              <Mail className="w-4 h-4 text-white" />
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <div className="flex items-center gap-2">
+              <div className="bg-indigo-600 p-1 rounded-md">
+                <Mail className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-bold text-white tracking-tight">
+                AI Email Reply Generator
+              </span>
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">v4.0.0</span>
             </div>
-            <span className="font-bold text-white tracking-tight">
-              AI Email Reply Generator
-            </span>
+            <p className="text-xs text-slate-500">Professional email communication, simplified.</p>
           </div>
           
           <div className="flex gap-8 text-sm">
