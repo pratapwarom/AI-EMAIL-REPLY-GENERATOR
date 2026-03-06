@@ -1,13 +1,49 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <title>AI Email Reply Generator</title>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- CSS File -->
+  <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+  <!-- Navbar -->
+  <header>
+    <div class="logo">AI Email Reply Generator</div>
+
+    <nav>
+      <a href="#">Home</a>
+      <a href="#">Features</a>
+      <a href="#">About</a>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <h1>Generate Professional Email Replies</h1>
+    <p>Paste any email and let AI create a professional response instantly.</p>
+  </section>
+
+  <!-- React App Container -->
+  <div class="app-container">
+    <div id="root"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    Powered by Gemini API
+  </footer>
+
+  <script type="module" src="/src/main.tsx"></script>
+
+</body>
+</html>
